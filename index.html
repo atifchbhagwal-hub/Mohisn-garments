@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <meta name="theme-color" content="#7b1e3a">
 <title>Mohsin Garments POS</title>
-<link rel="stylesheet" href="style.css?v=1.0.1">
+<link rel="stylesheet" href="style.css?v=1.1.0">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<meta name="mobile-web-app-capable" content="yes">
 </head>
 <body>
 <div id="login" class="screen" hidden>
@@ -26,6 +29,7 @@
   </div>
 </div>
 
+<div id="updateBar" hidden><span id="updateMsg"></span><button id="updateNow">↻ Update</button><button id="updateLater" class="later">Baad mein</button></div>
 <div id="app" hidden>
   <header>
     <div class="top">
@@ -42,11 +46,12 @@
     <p id="status" class="status"></p>
   </header>
   <main id="main"></main>
+  <p class="ver"><span id="verNow">v—</span> · <button id="checkUpdate" class="link">↻ Update check karein</button></p>
 </div>
 
 <dialog id="dialog"><div class="dhead"><h2 id="dtitle"></h2><button id="dclose">×</button></div><div id="dbody"></div></dialog>
 <div id="toast" hidden></div>
 <div id="printArea"></div>
-<script type="module" src="app.js?v=1.0.1"></script>
+<script type="module" src="app.js?v=1.1.0"></script>
 </body>
 </html>

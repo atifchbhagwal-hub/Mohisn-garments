@@ -23,3 +23,14 @@ Alag app hai — Noor Traders / Blue Khata se koi talluq nahi (na code share, na
 2026-09-18 — v1.0.1
 - Bug: login ke baad #login card screen par rehta tha — .screen{display:grid} ne [hidden] ko overwrite kiya.
   Fix: style.css mein [hidden]{display:none!important}. Versions 1.0.1 (index.html, app.js).
+
+2026-09-18 — v1.1.0: version + auto update + offline (PWA)
+- Nayi files: version.json {version,name,date}, sw.js (service worker), manifest.json, icon.svg.
+- app.js mein APP_VERSION = '1.1.0' (har release par version.json + sw.js ka V + APP_VERSION + index ke ?v= — chaar jagah badlein).
+- checkVersion(): version.json ko no-store fetch; app khulne par, har 15 minute, aur tab wapas khulne par (visibilitychange).
+  Version alag mile to upar hari patti (#updateBar): "Naya version X aa gaya" + ↻ Update + "Baad mein" (30 minute snooze).
+  Update par: service worker ko skip-waiting, reg.update(), location.reload(). Bill khula ho to pehle confirm.
+- sw.js: cache-first (tez) + peeche se taaza; version.json hamesha net se; sirf same-origin GET (Firebase cache nahi hota).
+  Naya SW install hote hi bhi patti aati hai; controllerchange par ek dafa reload.
+- Neeche footer: "Mohsin Garments POS v1.1.0 · ↻ Update check karein".
+- manifest + icon.svg se "Add to Home screen" par app standalone khulti hai.

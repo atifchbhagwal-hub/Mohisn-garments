@@ -1,6 +1,6 @@
 // Mohsin Garments POS — v1.0.1
 // Sale (cash), items with size/color variants, categories, sales history, receipt print/share.
-import { firebaseConfig, OWNER_EMAILS, SHOP_ID } from './config.js?v=1.0.1';
+import { firebaseConfig, OWNER_EMAILS, SHOP_ID } from './config.js?v=1.1.0';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signInAnonymously, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, getDoc, setDoc, deleteDoc, onSnapshot, runTransaction, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
@@ -426,3 +426,49 @@ function renderSettings(m) {
     e.target.reset(); toast('PIN save ho gaya'); };
   $('bk').onclick = () => { const blob = new Blob([JSON.stringify({ at: new Date().toISOString(), items, categories: cats, salesToday: sales, cfg }, null, 1)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `mohsin-garments-${today()}.json`; a.click(); };
 }
+
+
+// ---------- Version + auto update ----------
+const APP_VERSION = '1.1.0';
+let newVersion = '', swWaiting = null, snoozeUntil = 0;
+const setVerText = () => { const v = $('verNow'); if (v) v.textContent = 'Mohsin Garments POS v' + APP_VERSION; };
+setVerText();
+
+function showUpdateBar(ver) {
+  if (Date.now() < snoozeUntil) return;
+  const bar = $('updateBar'); if (!bar) return;
+  $('updateMsg').textContent = ver ? `Naya version ${ver} aa gaya hai` : 'Naya version tayyar hai';
+  bar.hidden = false;
+}
+$('updateLater').onclick = () => { $('updateBar').hidden = true; snoozeUntil = Date.now() + 30 * 60000; };
+$('updateNow').onclick = async () => {
+  if (cart.length && !confirm('Bill abhi khula hai. Update karne par bill saaf ho jayega. Aage barhein?')) return;
+  try { const regs = await navigator.serviceWorker?.getRegistrations?.() || []; for (const r of regs) { r.waiting?.postMessage('skip-waiting'); await r.update(); } } catch {}
+  location.reload(true);
+};
+$('checkUpdate').onclick = async () => { toast('Dekh rahe hain…'); const v = await checkVersion(true); if (!v) toast('App pehle se nayi hai (v' + APP_VERSION + ')'); };
+
+async function checkVersion(loud) {
+  try {
+    const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return '';
+    const d = await r.json();
+    const v = String(d.version || '');
+    if (v && v !== APP_VERSION) { newVersion = v; if (loud) snoozeUntil = 0; showUpdateBar(v); return v; }
+    return '';
+  } catch { return ''; }
+}
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.addEventListener('updatefound', () => {
+      const w = reg.installing;
+      w?.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) { swWaiting = w; showUpdateBar(newVersion); } });
+    });
+    setInterval(() => reg.update().catch(() => {}), 15 * 60000);
+  }).catch(() => {});
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded) { reloaded = true; location.reload(); } });
+}
+checkVersion(false);
+setInterval(() => checkVersion(false), 15 * 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(false); });

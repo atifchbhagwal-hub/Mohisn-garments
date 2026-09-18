@@ -1,0 +1,12 @@
+{
+  "name": "Mohsin Garments POS",
+  "short_name": "MG POS",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#faf6f7",
+  "theme_color": "#7b1e3a",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
