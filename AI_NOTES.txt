@@ -19,3 +19,7 @@ Alag app hai — Noor Traders / Blue Khata se koi talluq nahi (na code share, na
 - Items: sizes/colors comma se likh kar "Variants banao" -> size x color grid (stock, barcode, alag rate). Bina variants = single stock.
 - Offline: Firestore persistent cache (multi-tab). Koi service worker nahi (abhi).
 - Baqi/aage: camera barcode scan, udhaar khata (abhi sirf cash), purani tareekh ki sales report, item photo, PWA install.
+
+2026-09-18 — v1.0.1
+- Bug: login ke baad #login card screen par rehta tha — .screen{display:grid} ne [hidden] ko overwrite kiya.
+  Fix: style.css mein [hidden]{display:none!important}. Versions 1.0.1 (index.html, app.js).

@@ -1,6 +1,6 @@
-// Mohsin Garments POS — v1.0.0
+// Mohsin Garments POS — v1.0.1
 // Sale (cash), items with size/color variants, categories, sales history, receipt print/share.
-import { firebaseConfig, OWNER_EMAILS, SHOP_ID } from './config.js?v=1.0.0';
+import { firebaseConfig, OWNER_EMAILS, SHOP_ID } from './config.js?v=1.0.1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signInAnonymously, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, getDoc, setDoc, deleteDoc, onSnapshot, runTransaction, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
