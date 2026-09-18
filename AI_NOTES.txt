@@ -1,0 +1,21 @@
+MOHSIN GARMENTS POS — AI_NOTES (doosre AI / agle session ke liye)
+==============================================================
+Repo: https://github.com/atifchbhagwal-hub/Mohisn-garments  (GitHub Pages par host)
+Firebase: project atif-shop-9a832 (Atif Ch, atifchbhagwal@gmail.com). Config: config.js. Owner emails bhi config.js + firestore.rules mein.
+Alag app hai — Noor Traders / Blue Khata se koi talluq nahi (na code share, na Firebase).
+
+2026-09-18 — v1.0.0 (pehla version)
+- Files: index.html, style.css, app.js (ES module, Firebase 12.18 CDN), config.js, firestore.rules, AI_NOTES.txt.
+- Firestore: shops/mohsin-garments/{items, categories, sales, config, keys, sessions}
+  items/{id}: {name, code, category, rate, prate, active, variants:[{key:'size|color', size, color, stock, barcode, rate?}], stock (agar variants na hon), barcode}
+  sales/{id}: {no, date(YYYY-MM-DD), at, customer, lines:[{itemId,key,name,code,size,color,qty,rate,disc}], sub, disc, total, paid, change, by, role}
+  config/counter {sale: last no}, config/shop {shopName,address,phone,footer}, config/staffKey {key}
+  keys/{sha256('mg-v1:'+PIN)} {active}, sessions/{anonUid} {key, createdAt}
+- Login: malik = Firebase email/password (OWNER_EMAILS); mulazim = PIN -> hash -> signInAnonymously -> sessions/{uid} (rules key active check).
+  Mulazim: sirf Sale + aaj ki Sales (reprint). Items/Category/Settings sirf malik. Mulazim rate nahi badal sakta (readonly), disc de sakta hai.
+- Sale: search (naam/code/barcode/size/color), USB scanner (tez keys + Enter), cart lines (qty, rate, disc), bill disc, paid, change.
+  Save = transaction: config/counter +1, items ke variants ka stock kam, sales doc. Phir rasid dialog: Print (window.print, 80mm CSS) ya Share (navigator.share, text).
+- History: aaj ki sales (where date == today), reprint, malik ke liye "Wapas" (stock wapas + sale delete).
+- Items: sizes/colors comma se likh kar "Variants banao" -> size x color grid (stock, barcode, alag rate). Bina variants = single stock.
+- Offline: Firestore persistent cache (multi-tab). Koi service worker nahi (abhi).
+- Baqi/aage: camera barcode scan, udhaar khata (abhi sirf cash), purani tareekh ki sales report, item photo, PWA install.

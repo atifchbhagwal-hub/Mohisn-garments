@@ -1,0 +1,50 @@
+rules_version = '2';
+// MOHSIN GARMENTS POS v1.0 — project atif-shop-9a832
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function owner() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == 'password'
+        && request.auth.token.email in ['atifchbhagwal@gmail.com'];
+    }
+    function anon() { return signedIn() && request.auth.token.firebase.sign_in_provider == 'anonymous'; }
+    function sessionKey() {
+      return get(/databases/$(database)/documents/shops/mohsin-garments/sessions/$(request.auth.uid)).data.key;
+    }
+    // Mulazim: anonymous login + session doc jis ki key (PIN ka hash) chalu ho
+    function staff() {
+      return anon()
+        && exists(/databases/$(database)/documents/shops/mohsin-garments/sessions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/shops/mohsin-garments/keys/$(sessionKey())).data.active == true;
+    }
+
+    // Malik: sab kuch
+    match /shops/mohsin-garments/{collectionName}/{docId} {
+      allow read, write: if owner();
+    }
+
+    // Mulazim ka login: session sirf apni uid par, aur sirf chalu PIN key ke saath
+    match /shops/mohsin-garments/sessions/{uid} {
+      allow get: if anon() && request.auth.uid == uid;
+      allow create: if anon() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['key','createdAt'])
+        && request.resource.data.key is string
+        && get(/databases/$(database)/documents/shops/mohsin-garments/keys/$(request.resource.data.key)).data.active == true;
+    }
+
+    match /shops/mohsin-garments/items/{id} {
+      allow read: if staff();
+      // sale par sirf stock badalta hai
+      allow update: if staff()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['variants','stock','updatedAt']);
+    }
+    match /shops/mohsin-garments/categories/{id} { allow read: if staff(); }
+    match /shops/mohsin-garments/config/{id} {
+      allow read: if staff() && id in ['shop','counter'];
+      allow write: if staff() && id == 'counter' && request.resource.data.keys().hasOnly(['sale']);
+    }
+    match /shops/mohsin-garments/sales/{id} {
+      allow read, create: if staff();
+    }
+  }
+}

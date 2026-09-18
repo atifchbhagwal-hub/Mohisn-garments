@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#7b1e3a">
+<title>Mohsin Garments POS</title>
+<link rel="stylesheet" href="style.css?v=1.0.0">
+</head>
+<body>
+<div id="login" class="screen" hidden>
+  <div class="card">
+    <h1>Mohsin Garments</h1>
+    <p class="muted">POS · Sale · Stock</p>
+    <div class="tabs"><button data-role="owner" class="selected">Malik</button><button data-role="staff">Mulazim (PIN)</button></div>
+    <form id="ownerForm">
+      <label>Email<input name="email" type="email" required autocomplete="username"></label>
+      <label>Password<input name="password" type="password" required autocomplete="current-password"></label>
+      <button type="submit">Login</button>
+    </form>
+    <form id="staffForm" hidden>
+      <label>PIN<input name="pin" type="password" inputmode="numeric" required autocomplete="off"></label>
+      <button type="submit">Login</button>
+    </form>
+    <p id="loginMsg" class="err"></p>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <div class="top">
+      <div><small id="who">—</small><h1 id="title">Sale</h1></div>
+      <button id="logout" class="round" title="Logout">⏻</button>
+    </div>
+    <nav class="nav">
+      <button data-view="sale" class="selected">🧾 Sale</button>
+      <button data-view="history">📋 Sales</button>
+      <button data-view="items" class="owner">👕 Items</button>
+      <button data-view="cats" class="owner">🏷 Category</button>
+      <button data-view="settings" class="owner">⚙</button>
+    </nav>
+    <p id="status" class="status"></p>
+  </header>
+  <main id="main"></main>
+</div>
+
+<dialog id="dialog"><div class="dhead"><h2 id="dtitle"></h2><button id="dclose">×</button></div><div id="dbody"></div></dialog>
+<div id="toast" hidden></div>
+<div id="printArea"></div>
+<script type="module" src="app.js?v=1.0.0"></script>
+</body>
+</html>
