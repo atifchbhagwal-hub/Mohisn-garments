@@ -1,6 +1,6 @@
-// Mohsin Garments POS — v1.0.1
+// Mohsin Garments POS — v1.2.0
 // Sale (cash), items with size/color variants, categories, sales history, receipt print/share.
-import { firebaseConfig, OWNER_EMAILS, SHOP_ID } from './config.js?v=1.1.0';
+import { firebaseConfig, OWNER_EMAILS, SHOP_ID } from './config.js?v=1.2.0';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signInAnonymously, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, getDoc, setDoc, deleteDoc, onSnapshot, runTransaction, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
@@ -27,7 +27,7 @@ $('dclose').onclick = () => $('dialog').close();
 
 // ---------- state ----------
 let user = null, role = '', view = 'sale';
-let items = [], cats = [], sales = [], cfg = { staffPin: '', shopName: 'Mohsin Garments', address: '', phone: '', footer: 'Shukriya — dobara tashreef layein' };
+let items = [], cats = [], sales = [], cfg = { staffPin: '', shopName: 'Mohsin Garments', tagline: 'Premium Menswear & Fabrics', address: '', phone: '', phone2: '', notes: '', footer: 'Shukriya — dobara tashreef layein', showLogo: true, paper: '80' };
 let cart = [], paid = null, discAll = 0, custName = '';
 const stops = [];
 const isOwner = () => role === 'owner';
@@ -92,7 +92,7 @@ function listen() {
   stops.push(onSnapshot(col('items'), s => { items = s.docs.map(d => ({ ...d.data(), id: d.id })); render(); }, e => $('status').textContent = 'Items: ' + e.message));
   stops.push(onSnapshot(col('categories'), s => { cats = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => a.name.localeCompare(b.name)); render(); }));
   stops.push(onSnapshot(query(col('sales'), where('date', '==', today())), s => { sales = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => b.at - a.at); if (view === 'history') render(); }));
-  stops.push(onSnapshot(doc(col('config'), 'shop'), d => { if (d.exists()) cfg = { ...cfg, ...d.data() }; $('status').textContent = ''; }));
+  stops.push(onSnapshot(doc(col('config'), 'shop'), d => { if (d.exists()) cfg = { ...cfg, ...d.data() }; paintBrand(); $('status').textContent = ''; }));
 }
 
 // ---------- routing ----------
@@ -267,19 +267,36 @@ async function saveSale(btn) {
     cart = []; paid = null; discAll = 0; custName = '';
     render();
     toast(`Sale #${saved.no} save ho gayi`);
-    printReceipt(saved);
+    printReceipt(saved, true);
   } catch (e) { toast('Save nahi hui: ' + (e.message || e)); }
   finally { btn.disabled = false; }
 }
 
+// ---------- logo ----------
+// bw=true: rasid (thermal printer sirf kala chhapta hai). size px.
+function logoMark(size = 40, bw = false) {
+  const gold = bw ? '#000' : '#d9b65c', bg = bw ? '#fff' : '#7b1e3a', txt = bw ? '#000' : '#f4dc9a', sub = bw ? '#000' : '#f6e7c9';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="${size}" height="${size}" style="display:block;flex:none">
+  <rect width="512" height="512" rx="104" fill="${bg}"${bw ? ' stroke="#000" stroke-width="10"' : ''}/>
+  <rect x="30" y="30" width="452" height="452" rx="84" fill="none" stroke="${gold}" stroke-width="6"/>
+  <text x="256" y="300" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="232" font-weight="700" fill="${txt}" letter-spacing="-10">MG</text>
+  <line x1="120" y1="352" x2="216" y2="352" stroke="${gold}" stroke-width="3"/><line x1="296" y1="352" x2="392" y2="352" stroke="${gold}" stroke-width="3"/><path d="M256 344l8 8-8 8-8-8z" fill="${gold}"/>
+  <text x="256" y="404" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="27" fill="${sub}" letter-spacing="6">MOHSIN GARMENTS</text></svg>`;
+}
+function brandLockup(size = 36) {
+  return `<span class="brand">${logoMark(size)}<span class="brand-t"><b>${esc(cfg.shopName || 'Mohsin Garments')}</b><small>${esc(cfg.tagline || '')}</small></span></span>`;
+}
+function paintBrand() { const h = $('brandHead'); if (h) h.innerHTML = brandLockup(34); const l = $('brandLogin'); if (l) l.innerHTML = logoMark(96); }
+
 // ---------- receipt ----------
+// Share / WhatsApp ke liye sada text
 function receiptText(s) {
   const W = 32, line = (l, r) => { l = String(l); r = String(r); return (l + ' '.repeat(Math.max(1, W - l.length - r.length))).slice(0, W - r.length) + r; };
   const center = t => { t = String(t).slice(0, W); return ' '.repeat(Math.floor((W - t.length) / 2)) + t; };
   const hr = '-'.repeat(W);
   const out = [center(cfg.shopName || 'Mohsin Garments')];
   if (cfg.address) out.push(center(cfg.address));
-  if (cfg.phone) out.push(center(cfg.phone));
+  if (cfg.phone || cfg.phone2) out.push(center([cfg.phone, cfg.phone2].filter(Boolean).join(' | ')));
   out.push(hr, line('Bill #' + (s.no || ''), new Date(s.at || Date.now()).toLocaleString('en-GB', { hour12: true })));
   if (s.customer) out.push('Customer: ' + s.customer);
   out.push(hr);
@@ -289,18 +306,58 @@ function receiptText(s) {
   }
   out.push(hr);
   if (s.disc) out.push(line('Discount:', '-' + num(s.disc)));
-  out.push(line('TOTAL:', 'Rs ' + num(s.total)), line('Paid:', num(s.paid)), line('Change:', num(s.change)), hr, center(cfg.footer || ''), '', '');
+  out.push(line('TOTAL:', 'Rs ' + num(s.total)), line('Paid:', num(s.paid)), line('Change:', num(s.change)), hr);
+  if (cfg.notes) out.push(...String(cfg.notes).split('\n').map(x => x.trim()).filter(Boolean));
+  out.push(center(cfg.footer || ''), '', '');
   return out.join('\n');
 }
-function printReceipt(s) {
-  const text = receiptText(s);
-  modal('Bill #' + s.no, `<pre style="font:12px/1.35 'Courier New',monospace;white-space:pre-wrap;background:#fafafa;padding:10px;border-radius:10px">${esc(text)}</pre>
+// Printer ke liye HTML rasid (logo + table)
+function receiptHtml(s) {
+  const pcs = s.lines.reduce((a, l) => a + (Number(l.qty) || 0), 0);
+  const sub = s.lines.reduce((a, l) => a + l.qty * l.rate - (l.disc || 0), 0);
+  const dt = new Date(s.at || Date.now());
+  return `<div class="rc">
+    ${cfg.showLogo !== false ? `<div class="rc-logo">${logoMark(150, true)}</div>` : ''}
+    <div class="rc-name">${esc(cfg.shopName || 'Mohsin Garments')}</div>
+    ${cfg.tagline ? `<div class="rc-tag">${esc(cfg.tagline)}</div>` : ''}
+    ${cfg.address ? `<div class="rc-c">${esc(cfg.address)}</div>` : ''}
+    ${cfg.phone || cfg.phone2 ? `<div class="rc-c">${esc([cfg.phone, cfg.phone2].filter(Boolean).join('  |  '))}</div>` : ''}
+    <div class="rc-hr"></div>
+    <div class="rc-meta"><span><b>Bill #${esc(s.no)}</b></span><span>${dt.toLocaleDateString('en-GB')} ${dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}</span></div>
+    ${s.customer ? `<div class="rc-meta"><span>Customer: <b>${esc(s.customer)}</b></span></div>` : ''}
+    <table class="rc-t"><thead><tr><th>Item</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Amount</th></tr></thead><tbody>
+    ${s.lines.map(l => `<tr><td>${esc(l.name)}${l.size || l.color ? `<br><small>${esc([l.size, l.color].filter(Boolean).join(' / '))}</small>` : ''}${l.disc ? `<br><small>Disc -${num(l.disc)}</small>` : ''}</td><td class="n">${num(l.qty)}</td><td class="n">${num(l.rate)}</td><td class="n">${num(l.qty * l.rate - (l.disc || 0))}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="rc-hr"></div>
+    <div class="rc-row"><span>Pieces: ${num(pcs)}</span><span>Subtotal: ${num(sub)}</span></div>
+    ${s.disc ? `<div class="rc-row"><span>Discount</span><span>-${num(s.disc)}</span></div>` : ''}
+    <div class="rc-row rc-total"><span>TOTAL</span><span>Rs ${num(s.total)}</span></div>
+    <div class="rc-row"><span>Paid</span><span>${num(s.paid)}</span></div>
+    <div class="rc-row"><span>Change</span><span>${num(s.change)}</span></div>
+    <div class="rc-hr"></div>
+    ${cfg.notes ? `<div class="rc-notes">${esc(cfg.notes).replace(/\n/g, '<br>')}</div>` : ''}
+    ${cfg.footer ? `<div class="rc-foot">${esc(cfg.footer)}</div>` : ''}
+    <div class="rc-tiny">Mohsin Garments POS</div>
+  </div>`;
+}
+function doPrint(s) {
+  const w = cfg.paper === '58' ? 58 : 80;
+  let st = $('paperCss'); if (!st) { st = document.createElement('style'); st.id = 'paperCss'; document.head.appendChild(st); }
+  st.textContent = `@media print{@page{size:${w}mm auto;margin:0}#printArea{width:${w - 8}mm}}`;
+  $('printArea').innerHTML = receiptHtml(s);
+  window.print();
+}
+// auto=true: sale save hote hi seedha printer par bhejo (popup ke saath)
+function printReceipt(s, auto = false) {
+  modal('Bill #' + s.no, `<div class="rc-preview">${receiptHtml(s)}</div>
     <div class="row"><button class="primary" id="pPrint">🖨 Print</button><button id="pShare">📤 Share / PDF</button></div>`);
-  $('pPrint').onclick = () => { $('printArea').innerHTML = `<pre>${esc(text)}</pre>`; window.print(); };
+  $('pPrint').onclick = () => doPrint(s);
   $('pShare').onclick = async () => {
+    const text = receiptText(s);
     if (navigator.share) { try { await navigator.share({ title: 'Bill #' + s.no, text }); } catch {} }
-    else { $('printArea').innerHTML = `<pre>${esc(text)}</pre>`; window.print(); }
+    else doPrint(s);
   };
+  if (auto) setTimeout(() => doPrint(s), 150);
 }
 
 // ---------- HISTORY ----------
@@ -405,16 +462,24 @@ function renderCats(m) {
 
 // ---------- SETTINGS ----------
 function renderSettings(m) {
-  m.innerHTML = `<form id="sf" class="box">
-    <label>Dukaan ka naam (rasid par)<input name="shopName" value="${esc(cfg.shopName || '')}"></label>
+  const chk = cfg.showLogo !== false ? ' checked' : '';
+  m.innerHTML = `<form id="sf" class="box"><b>Dukaan ki details (rasid par chhapti hain)</b>
+    <label>Dukaan ka naam<input name="shopName" value="${esc(cfg.shopName || '')}"></label>
+    <label>Tagline (naam ke neeche, chhoti line)<input name="tagline" value="${esc(cfg.tagline || '')}" placeholder="e.g. Premium Menswear & Fabrics"></label>
     <label>Address<input name="address" value="${esc(cfg.address || '')}"></label>
-    <label>Phone<input name="phone" value="${esc(cfg.phone || '')}"></label>
+    <div class="row"><label class="grow">Phone 1<input name="phone" value="${esc(cfg.phone || '')}"></label><label class="grow">Phone 2 / WhatsApp<input name="phone2" value="${esc(cfg.phone2 || '')}"></label></div>
+    <label>Notes (rasid ke aakhir mein, e.g. wapsi/tabdeeli ki policy)<textarea name="notes" rows="3">${esc(cfg.notes || '')}</textarea></label>
     <label>Rasid ke neeche ki line<input name="footer" value="${esc(cfg.footer || '')}"></label>
-    <button type="submit">Save</button></form>
+    <div class="row"><label class="grow" style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="showLogo" style="width:auto"${chk}> Logo rasid par chhapo</label>
+    <label class="grow">Printer paper<select name="paper"><option value="80"${cfg.paper !== '58' ? ' selected' : ''}>80mm (TH230)</option><option value="58"${cfg.paper === '58' ? ' selected' : ''}>58mm</option></select></label></div>
+    <div class="row"><button type="submit">Save</button><button type="button" id="testPrint">🖨 Test print</button></div></form>
+  <div class="box muted" style="font-size:13px"><b>TH230 printer (PC/Chrome):</b> Windows mein printer ka driver install ho aur print dialog mein Destination = TH230, Margins = None, Scale = 100%, "Headers and footers" off. Ek dafa set karne ke baad Chrome yaad rakhta hai.</div>
   <form id="pf" class="box"><label>Mulazim ka PIN (4-6 hindse)<input name="pin" inputmode="numeric" minlength="4" maxlength="6" placeholder="naya PIN"></label><button type="submit">PIN save</button>
   <p class="muted" style="font-size:13px">Mulazim is PIN se login karke sirf Sale aur aaj ki Sales dekh sakta hai. Items, category aur settings sirf malik.</p></form>
   <div class="box"><b>Backup</b><p class="muted" style="font-size:13px">Saare items aur aaj ki sales ki JSON file.</p><button id="bk">⬇ Backup download</button></div>`;
-  $('sf').onsubmit = async e => { e.preventDefault(); const f = e.target; await setDoc(doc(col('config'), 'shop'), { shopName: f.elements.shopName.value.trim(), address: f.elements.address.value.trim(), phone: f.elements.phone.value.trim(), footer: f.elements.footer.value.trim() }, { merge: true }); toast('Save ho gaya'); };
+  const readForm = f => ({ shopName: f.elements.shopName.value.trim(), tagline: f.elements.tagline.value.trim(), address: f.elements.address.value.trim(), phone: f.elements.phone.value.trim(), phone2: f.elements.phone2.value.trim(), notes: f.elements.notes.value.trim(), footer: f.elements.footer.value.trim(), showLogo: f.elements.showLogo.checked, paper: f.elements.paper.value });
+  $('sf').onsubmit = async e => { e.preventDefault(); const d = readForm(e.target); await setDoc(doc(col('config'), 'shop'), d, { merge: true }); cfg = { ...cfg, ...d }; paintBrand(); toast('Save ho gaya'); };
+  $('testPrint').onclick = () => { cfg = { ...cfg, ...readForm($('sf')) }; printReceipt({ no: 'TEST', at: Date.now(), customer: 'Test', lines: [{ name: 'Kurta (sample)', size: 'L', color: 'White', qty: 1, rate: 2500, disc: 0 }, { name: 'Shalwar', qty: 2, rate: 900, disc: 100 }], disc: 0, total: 4200, paid: 5000, change: 800 }); };
   $('pf').onsubmit = async e => { e.preventDefault(); const pin = e.target.elements.pin.value.trim(); if (!/^\d{4,6}$/.test(pin)) return toast('4-6 hindse ka PIN likhein');
     const k = await pinKey(pin);
     // purani keys band, nayi chalu (mulazim ke purane login bhi band ho jate hain)
@@ -429,8 +494,9 @@ function renderSettings(m) {
 
 
 // ---------- Version + auto update ----------
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 let newVersion = '', swWaiting = null, snoozeUntil = 0;
+paintBrand();
 const setVerText = () => { const v = $('verNow'); if (v) v.textContent = 'Mohsin Garments POS v' + APP_VERSION; };
 setVerText();
 

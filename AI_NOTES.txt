@@ -34,3 +34,16 @@ Alag app hai — Noor Traders / Blue Khata se koi talluq nahi (na code share, na
   Naya SW install hote hi bhi patti aati hai; controllerchange par ek dafa reload.
 - Neeche footer: "Mohsin Garments POS v1.1.0 · ↻ Update check karein".
 - manifest + icon.svg se "Add to Home screen" par app standalone khulti hai.
+
+2026-09-22 — v1.2.0: logo, nayi rasid (TH230 80mm), settings
+- Naya logo: icon.svg (maroon+gold "MG" monogram, Georgia serif, "MOHSIN GARMENTS" wordmark). app.js mein logoMark(size, bw) inline SVG banata hai —
+  bw=true rasid ke liye (thermal sirf kala). brandLockup()/paintBrand() login (#brandLogin) aur header (#brandHead) par logo lagate hain; cfg change par dobara paint.
+- Rasid ab HTML hai: receiptHtml(s) = logo (cfg.showLogo) → naam → tagline → address → phone1 | phone2 → Bill#/date/customer → table (Item, Qty, Rate, Amount; size/color, disc chhoti line) →
+  pieces/subtotal, discount, TOTAL (bada), paid, change → notes (cfg.notes, multi-line) → footer → "Mohsin Garments POS". CSS classes .rc-* (style.css).
+  receiptText(s) ab sirf Share/WhatsApp ke text ke liye (notes bhi shamil).
+- doPrint(s): #printArea mein HTML daal kar window.print(). Paper cfg.paper ('80' default / '58') — <style id=paperCss> se @page size aur #printArea width (paper-8mm) set hoti hai. @page margin 0.
+- Sale save hote hi printReceipt(saved, true) → popup (preview + Print + Share) aur 150ms baad khud print dialog. Sales tab ka 🖨 = dobara print (naya design).
+- Settings (sirf malik): shopName, tagline, address, phone, phone2, notes (textarea), footer, showLogo (checkbox), paper (80/58) → Firestore config/shop (merge). "Test print" button sample bill chhapta hai.
+  Settings mein TH230 ki hidayat: Chrome print dialog mein Destination TH230, Margins None, Scale 100, headers/footers off.
+- Versions 1.2.0: version.json, sw.js V, app.js APP_VERSION, index.html ?v= (style.css, app.js, config.js import).
+- Aage: printer ka logo/paper Firestore mein hai to sab devices par same; agar print par khali jagah zyada aaye to Chrome mein "Margins: None" check karein.

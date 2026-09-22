@@ -1,5 +1,5 @@
 // Mohsin Garments POS — service worker (offline + auto update)
-const V = '1.1.0';
+const V = '1.2.0';
 const CACHE = 'mg-pos-' + V;
 const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './manifest.json', './icon.svg'];
 

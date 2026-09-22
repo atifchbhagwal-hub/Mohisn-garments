@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <meta name="theme-color" content="#7b1e3a">
 <title>Mohsin Garments POS</title>
-<link rel="stylesheet" href="style.css?v=1.1.0">
+<link rel="stylesheet" href="style.css?v=1.2.0">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg">
 <meta name="mobile-web-app-capable" content="yes">
@@ -13,7 +13,8 @@
 <body>
 <div id="login" class="screen" hidden>
   <div class="card">
-    <h1>Mohsin Garments</h1>
+    <div id="brandLogin" class="brandLogin"></div>
+    <h1 class="serif">Mohsin Garments</h1>
     <p class="muted">POS · Sale · Stock</p>
     <div class="tabs"><button data-role="owner" class="selected">Malik</button><button data-role="staff">Mulazim (PIN)</button></div>
     <form id="ownerForm">
@@ -33,7 +34,7 @@
 <div id="app" hidden>
   <header>
     <div class="top">
-      <div><small id="who">—</small><h1 id="title">Sale</h1></div>
+      <div id="brandHead"></div><div style="flex:1"><small id="who">—</small><h1 id="title">Sale</h1></div>
       <button id="logout" class="round" title="Logout">⏻</button>
     </div>
     <nav class="nav">
@@ -52,6 +53,6 @@
 <dialog id="dialog"><div class="dhead"><h2 id="dtitle"></h2><button id="dclose">×</button></div><div id="dbody"></div></dialog>
 <div id="toast" hidden></div>
 <div id="printArea"></div>
-<script type="module" src="app.js?v=1.1.0"></script>
+<script type="module" src="app.js?v=1.2.0"></script>
 </body>
 </html>
