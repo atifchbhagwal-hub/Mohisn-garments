@@ -47,3 +47,26 @@ Alag app hai — Noor Traders / Blue Khata se koi talluq nahi (na code share, na
   Settings mein TH230 ki hidayat: Chrome print dialog mein Destination TH230, Margins None, Scale 100, headers/footers off.
 - Versions 1.2.0: version.json, sw.js V, app.js APP_VERSION, index.html ?v= (style.css, app.js, config.js import).
 - Aage: printer ka logo/paper Firestore mein hai to sab devices par same; agar print par khali jagah zyada aaye to Chrome mein "Margins: None" check karein.
+
+2026-09-28 — v1.3.0: dark blue theme, 3-hissa sale screen, print fix (TH230), header links
+- Rang: poori app dark blue (--c #0f2a55, --c2 #1e4a8a, bg #f2f5fa). Header gradient #0a1f40→#163a72. Logo (logoMark + icon.svg) ab navy + gold.
+  theme-color index.html + manifest.json bhi #0f2a55.
+- Header (sirf malik, class "owner"): "⬆ GitHub" → github.com/atifchbhagwal-hub/Mohisn-garments/upload/main,
+  "🔥 Firestore" → console.firebase.google.com/project/atif-shop-9a832/firestore. Mobile par sirf icon.
+  onAuth mein ab document.querySelectorAll('.owner') (pehle '.nav .owner').
+- Sale screen (main.wide, max 1600px) = .saleWrap: PC (>=1100px) par 3 column: left "⭐ Zyada bikne wale" (bade chips, top 12),
+  beech mein search + bill, right "👕 Saare items" (category tabs + item cards, hamesha nazar). Mobile par: chips upar (side scroll), bill, items neeche.
+  Zyada bikne wale = pichle 30 din ki sales se item-wise qty (koi naya field/rules change nahi).
+  Sales listener ab where('date','>=', daysAgo(30)) → sales30; aaj ki "sales" isi se filter. Sale snapshot par sirf paintTop() (poora render nahi, taake typing na toote).
+  Tap: pickItem(id) → ek variant ho to seedha addLine, warna popup mein size/color buttons (.vbtn).
+- Bill ke khane bade (.sCenter css): inputs 20px/50px, total 36px, Save button 58px. Bug fix: rate/qty badalne par "1 × rate" wali chhoti line (#qr{i}) bhi update hoti hai.
+  q.focus() sirf PC (pointer:fine) par, mobile par keyboard khud na khule.
+- Print fix: TH230 80mm roll ki asal print width 72mm, left ~4mm chhapta nahi → pehle bill ka left kat raha tha.
+  printGeom(): paper 80 → width 72mm, left shift 4mm (58 → 48mm, 5mm). @page 80mm margin 0, #printArea width + margin-left.
+  Settings (Firestore config/shop): pwidth, shift (khali = khud). .rc padding 1mm 0.
+- Direct print: localStorage 'mg-direct-print' (har device alag; default PC chalu, mobile band). Chalu ho to printReceipt() popup nahi
+  kholta — seedha doPrint + toast "Bill #N print ho gaya". Band ho to purana popup (preview + Print + Share).
+  Browser ka apna preview JS se band nahi ho sakta → Chrome shortcut Target mein --kiosk-printing + TH230 default printer (hidayat Settings mein).
+- Sales tab mein har bill par 📤 Share button (shareReceipt: navigator.share, warna clipboard copy).
+- Versions 1.3.0: version.json, sw.js V, app.js APP_VERSION, index.html ?v=, config import.
+- Test: headless Chromium + mock Firebase (PC 1366 + mobile 390) — chips, item cards, variant popup, category tabs, direct print CSS, settings sab chale, koi JS error nahi.

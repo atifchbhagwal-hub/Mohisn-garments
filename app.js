@@ -1,6 +1,6 @@
-// Mohsin Garments POS — v1.2.0
+// Mohsin Garments POS — v1.3.0
 // Sale (cash), items with size/color variants, categories, sales history, receipt print/share.
-import { firebaseConfig, OWNER_EMAILS, SHOP_ID } from './config.js?v=1.2.0';
+import { firebaseConfig, OWNER_EMAILS, SHOP_ID } from './config.js?v=1.3.0';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signInAnonymously, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, getDoc, setDoc, deleteDoc, onSnapshot, runTransaction, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
@@ -19,15 +19,20 @@ const norm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
 const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
 const num = n => r2(n).toLocaleString('en-PK');
 const today = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); const p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 const uid = () => 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 let toastT = null;
 const toast = m => { const t = $('toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); };
-const modal = (title, html) => { $('dtitle').textContent = title; $('dbody').innerHTML = html; if (!$('dialog').open) $('dialog').showModal(); };
+const modal = (title, html) => { $('dtitle').textContent = title; $('dbody').onclick = null; $('dbody').innerHTML = html; if (!$('dialog').open) $('dialog').showModal(); };
 $('dclose').onclick = () => $('dialog').close();
 
 // ---------- state ----------
 let user = null, role = '', view = 'sale';
-let items = [], cats = [], sales = [], cfg = { staffPin: '', shopName: 'Mohsin Garments', tagline: 'Premium Menswear & Fabrics', address: '', phone: '', phone2: '', notes: '', footer: 'Shukriya — dobara tashreef layein', showLogo: true, paper: '80' };
+let items = [], cats = [], sales = [], cfg = { staffPin: '', shopName: 'Mohsin Garments', tagline: 'Premium Menswear & Fabrics', address: '', phone: '', phone2: '', notes: '', footer: 'Shukriya — dobara tashreef layein', showLogo: true, paper: '80', pwidth: '', shift: '' };
+let sales30 = [], saleCat = '';
+const finePointer = () => matchMedia('(pointer:fine)').matches;
+// Direct print: har device ki apni setting (PC par chalu, mobile par band)
+const directPrint = () => { const v = localStorage.getItem('mg-direct-print'); return v == null ? finePointer() : v === '1'; };
 let cart = [], paid = null, discAll = 0, custName = '';
 const stops = [];
 const isOwner = () => role === 'owner';
@@ -83,7 +88,7 @@ onAuthStateChanged(auth, async u => {
   else { $('loginMsg').textContent = 'Yeh email malik ki list mein nahi'; await signOut(auth); return; }
   $('login').hidden = true; $('app').hidden = false;
   $('who').textContent = role === 'owner' ? 'Malik · ' + u.email : 'Mulazim';
-  document.querySelectorAll('.nav .owner').forEach(b => b.hidden = !isOwner());
+  document.querySelectorAll('.owner').forEach(b => b.hidden = !isOwner());
   listen();
   route('sale');
 });
@@ -91,7 +96,12 @@ onAuthStateChanged(auth, async u => {
 function listen() {
   stops.push(onSnapshot(col('items'), s => { items = s.docs.map(d => ({ ...d.data(), id: d.id })); render(); }, e => $('status').textContent = 'Items: ' + e.message));
   stops.push(onSnapshot(col('categories'), s => { cats = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => a.name.localeCompare(b.name)); render(); }));
-  stops.push(onSnapshot(query(col('sales'), where('date', '==', today())), s => { sales = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => b.at - a.at); if (view === 'history') render(); }));
+  // pichle 30 din ki sales: "zyada bikne wale" ke liye; aaj ki sales isi mein se
+  stops.push(onSnapshot(query(col('sales'), where('date', '>=', daysAgo(30))), s => {
+    sales30 = s.docs.map(d => ({ ...d.data(), id: d.id }));
+    sales = sales30.filter(x => x.date === today()).sort((a, b) => b.at - a.at);
+    if (view === 'history') render(); else if (view === 'sale') paintTop();
+  }));
   stops.push(onSnapshot(doc(col('config'), 'shop'), d => { if (d.exists()) cfg = { ...cfg, ...d.data() }; paintBrand(); $('status').textContent = ''; }));
 }
 
@@ -100,6 +110,7 @@ document.querySelector('.nav').onclick = e => { const b = e.target.closest('[dat
 function route(v) {
   if (!isOwner() && ['items', 'cats', 'settings'].includes(v)) v = 'sale';
   view = v;
+  $('main').classList.toggle('wide', v === 'sale');
   document.querySelectorAll('.nav [data-view]').forEach(b => b.classList.toggle('selected', b.dataset.view === v));
   $('title').textContent = { sale: 'Sale', history: 'Aaj ki Sales', items: 'Items', cats: 'Categories', settings: 'Settings' }[v];
   render();
@@ -139,20 +150,22 @@ const lineTotal = l => r2(l.qty * l.rate - (Number(l.disc) || 0));
 const cartTotal = () => r2(cart.reduce((n, l) => n + lineTotal(l), 0) - (Number(discAll) || 0));
 function renderSale(m) {
   const total = cartTotal(), pay = paid == null ? total : paid, change = r2(pay - total);
-  m.innerHTML = `
+  m.innerHTML = `<div class="saleWrap">
+  <aside class="side sLeft"><div class="sideH">⭐ Zyada bikne wale</div><div id="topSell" class="topSell"></div></aside>
+  <section class="sCenter">
   <div class="box search">
     <input id="q" placeholder="Item ka naam / code / barcode likhein (scanner bhi chalega)" autocomplete="off">
     <div id="hits" class="results" hidden></div>
   </div>
   <div id="cart">${cart.length ? cart.map((l, i) => `<div class="line">
-      <div class="nm"><b>${esc(l.name)}</b><small>${esc(l.label || '')}${l.code ? ' · ' + esc(l.code) : ''} · stock ${num(l.stock)}</small></div>
+      <div class="nm"><b>${esc(l.name)}</b><small>${[l.label, l.code].filter(Boolean).map(esc).join(' · ')}${l.label || l.code ? ' · ' : ''}stock ${num(l.stock)}</small></div>
       <button class="danger x" data-del="${i}">✕</button>
       <div class="inputs">
         <label>Qty<input type="number" min="0" step="1" inputmode="numeric" data-qty="${i}" value="${l.qty}"></label>
         <label>Rate<input type="number" min="0" step="any" inputmode="decimal" data-rate="${i}" value="${l.rate}"${isOwner() ? '' : ' readonly'}></label>
         <label>Disc Rs<input type="number" min="0" step="any" inputmode="decimal" data-disc="${i}" value="${l.disc || ''}"></label>
-        <div class="amt"><small>${num(l.qty)} × ${num(l.rate)}</small><br><b id="amt${i}">${num(lineTotal(l))}</b></div>
-      </div></div>`).join('') : '<div class="empty">Upar item likh kar ya scan karke bill shuru karein</div>'}</div>
+        <div class="amt"><small id="qr${i}">${num(l.qty)} × ${num(l.rate)}</small><br><b id="amt${i}">${num(lineTotal(l))}</b></div>
+      </div></div>`).join('') : '<div class="empty">Item search / scan karein, ya chips aur items par tap karein</div>'}</div>
   ${cart.length ? `<div class="box totals">
     <label>Customer naam (ikhtiyari)<input id="cust" value="${esc(custName)}"></label>
     <label>Bill discount Rs<input id="discAll" type="number" min="0" step="any" inputmode="decimal" value="${discAll || ''}"></label>
@@ -160,9 +173,13 @@ function renderSale(m) {
     <label>Paid (cash mila)<input id="paid" type="number" min="0" step="any" inputmode="decimal" value="${pay}"></label>
     <label>Change (wapas)<input id="chg" readonly value="${num(change)}"></label>
   </div>
-  <div class="actions"><button class="danger" id="clear">✕ Naya bill</button><button class="green" id="save">💾 Save + Print · Rs ${num(total)}</button></div>` : ''}`;
+  <div class="actions"><button class="danger" id="clear">✕ Naya bill</button><button class="green" id="save">💾 Save + Print · Rs ${num(total)}</button></div>` : ''}
+  </section>
+  <aside class="side sRight"><div class="sideH">👕 Saare items</div><div id="catTabs" class="catTabs"></div><div id="allItems" class="igrid"></div></aside>
+  </div>`;
+  paintTop(); paintAll();
   const q = $('q');
-  q.focus();
+  if (finePointer()) q.focus();
   q.oninput = () => showHits(q.value);
   q.onkeydown = e => {
     if (e.key === 'Enter') { e.preventDefault(); const h = findHits(q.value); if (h.length === 1 || (h.length && h[0].barcode && norm(h[0].barcode) === norm(q.value))) { addLine(h[0]); q.value = ''; $('hits').hidden = true; } else if (!h.length) toast('Item nahi mila'); }
@@ -175,7 +192,7 @@ function renderSale(m) {
       if (t.dataset.qty != null) l.qty = Math.max(0, Number(t.value) || 0);
       if (t.dataset.rate != null) l.rate = Math.max(0, Number(t.value) || 0);
       if (t.dataset.disc != null) l.disc = Math.max(0, Number(t.value) || 0);
-      $('amt' + i).textContent = num(lineTotal(l)); refreshTotals();
+      $('amt' + i).textContent = num(lineTotal(l)); $('qr' + i).textContent = `${num(l.qty)} × ${num(l.rate)}`; refreshTotals();
     } else if (t.id === 'discAll') { discAll = Math.max(0, Number(t.value) || 0); refreshTotals(); }
     else if (t.id === 'paid') { paid = t.value === '' ? null : Math.max(0, Number(t.value) || 0); refreshTotals(); }
     else if (t.id === 'cust') custName = t.value;
@@ -185,8 +202,43 @@ function renderSale(m) {
     if (b.dataset.del != null) { cart.splice(Number(b.dataset.del), 1); if (!cart.length) { paid = null; discAll = 0; } render(); }
     else if (b.id === 'clear') { if (confirm('Bill saaf karein?')) { cart = []; paid = null; discAll = 0; custName = ''; render(); } }
     else if (b.id === 'save') saveSale(b);
+    else if (b.dataset.pick) pickItem(b.dataset.pick);
+    else if (b.dataset.cat != null) { saleCat = b.dataset.cat; paintAll(); }
     else if (b.dataset.hit != null) { const h = findHits(q.value)[Number(b.dataset.hit)]; if (h) { addLine(h); q.value = ''; $('hits').hidden = true; } }
   };
+}
+// ---- side panels: zyada bikne wale + saare items ----
+const itemStock = it => Array.isArray(it.variants) && it.variants.length ? it.variants.reduce((n, v) => n + (Number(v.stock) || 0), 0) : Number(it.stock) || 0;
+function topSellers(n = 12) {
+  const cnt = new Map();
+  for (const s of sales30) for (const l of s.lines || []) cnt.set(l.itemId, (cnt.get(l.itemId) || 0) + (Number(l.qty) || 0));
+  return [...cnt].map(([id, q]) => ({ it: items.find(i => i.id === id && i.active !== false), q })).filter(x => x.it).sort((a, b) => b.q - a.q).slice(0, n);
+}
+function paintTop() {
+  const box = $('topSell'); if (!box) return;
+  const t = topSellers();
+  box.innerHTML = t.length ? t.map(x => `<button class="bigChip" data-pick="${x.it.id}"><b>${esc(x.it.name)}</b><small>Rs ${num(x.it.rate)} · ${num(x.q)} bike</small></button>`).join('')
+    : '<div class="muted sideEmpty">Sales hone ke baad yahan zyada bikne wale items aayenge</div>';
+}
+function paintAll() {
+  const tabs = $('catTabs'), box = $('allItems'); if (!tabs || !box) return;
+  const used = [...new Set(items.filter(i => i.active !== false && i.category).map(i => i.category))];
+  const names = cats.map(c => c.name).filter(n => used.includes(n));
+  if (saleCat && !names.includes(saleCat)) saleCat = '';
+  tabs.innerHTML = ['', ...names].map(n => `<button data-cat="${esc(n)}" class="${n === saleCat ? 'selected' : ''}">${n ? esc(n) : 'Sab'}</button>`).join('');
+  const list = items.filter(i => i.active !== false && (!saleCat || i.category === saleCat)).sort((a, b) => a.name.localeCompare(b.name));
+  box.innerHTML = list.length ? list.map(it => { const st = itemStock(it), nv = (it.variants || []).length;
+    return `<button class="icard${st <= 0 ? ' zero' : ''}" data-pick="${it.id}"><b>${esc(it.name)}</b><span>Rs ${num(it.rate)}</span><small>stock ${num(st)}${nv > 1 ? ' · ' + nv + ' size/color' : ''}</small></button>`; }).join('')
+    : '<div class="muted sideEmpty">Koi item nahi</div>';
+}
+// item tap: ek hi variant ho to seedha bill mein, warna size/color chunein
+function pickItem(id) {
+  const it = items.find(i => i.id === id); if (!it) return;
+  const vs = allVariants().filter(x => x.item.id === id);
+  if (!vs.length) return;
+  if (vs.length === 1) { addLine(vs[0]); return; }
+  modal(it.name + ' — size / color', `<div class="vpick">${vs.map((x, i) => `<button class="vbtn${x.stock <= 0 ? ' zero' : ''}" data-vp="${i}"><b>${esc(x.label || '-')}</b><small>Rs ${num(x.rate)} · stock ${num(x.stock)}</small></button>`).join('')}</div>`);
+  $('dbody').onclick = e => { const b = e.target.closest('[data-vp]'); if (!b) return; $('dialog').close(); addLine(vs[Number(b.dataset.vp)]); };
 }
 function refreshTotals() {
   const total = cartTotal(), pay = paid == null ? total : paid;
@@ -266,7 +318,7 @@ async function saveSale(btn) {
     const saved = { no, date: today(), at: Date.now(), customer: custName.trim(), lines, disc: discAll, total, paid: pay, change: r2(pay - total) };
     cart = []; paid = null; discAll = 0; custName = '';
     render();
-    toast(`Sale #${saved.no} save ho gayi`);
+    if (!directPrint()) toast(`Sale #${saved.no} save ho gayi`);
     printReceipt(saved, true);
   } catch (e) { toast('Save nahi hui: ' + (e.message || e)); }
   finally { btn.disabled = false; }
@@ -275,7 +327,7 @@ async function saveSale(btn) {
 // ---------- logo ----------
 // bw=true: rasid (thermal printer sirf kala chhapta hai). size px.
 function logoMark(size = 40, bw = false) {
-  const gold = bw ? '#000' : '#d9b65c', bg = bw ? '#fff' : '#7b1e3a', txt = bw ? '#000' : '#f4dc9a', sub = bw ? '#000' : '#f6e7c9';
+  const gold = bw ? '#000' : '#d9b65c', bg = bw ? '#fff' : '#0f2a55', txt = bw ? '#000' : '#f4dc9a', sub = bw ? '#000' : '#f6e7c9';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="${size}" height="${size}" style="display:block;flex:none">
   <rect width="512" height="512" rx="104" fill="${bg}"${bw ? ' stroke="#000" stroke-width="10"' : ''}/>
   <rect x="30" y="30" width="452" height="452" rx="84" fill="none" stroke="${gold}" stroke-width="6"/>
@@ -340,24 +392,35 @@ function receiptHtml(s) {
     <div class="rc-tiny">Mohsin Garments POS</div>
   </div>`;
 }
+// TH230 80mm roll: asal chhapne ki jagah 72mm, dono taraf ~4mm khaali. Isliye content 4mm right khiska kar 72mm chaura.
+function printGeom() {
+  const p = cfg.paper === '58' ? 58 : 80;
+  const pw = Number(cfg.pwidth) > 0 ? Number(cfg.pwidth) : (p === 58 ? 48 : 72);
+  const sh = cfg.shift !== '' && cfg.shift != null && !isNaN(Number(cfg.shift)) ? Number(cfg.shift) : (p - pw) / 2;
+  return { p, pw, sh };
+}
 function doPrint(s) {
-  const w = cfg.paper === '58' ? 58 : 80;
+  const { p, pw, sh } = printGeom();
   let st = $('paperCss'); if (!st) { st = document.createElement('style'); st.id = 'paperCss'; document.head.appendChild(st); }
-  st.textContent = `@media print{@page{size:${w}mm auto;margin:0}#printArea{width:${w - 8}mm}}`;
+  st.textContent = `@media print{@page{size:${p}mm auto;margin:0}#printArea{width:${pw}mm;margin-left:${sh}mm}}`;
   $('printArea').innerHTML = receiptHtml(s);
   window.print();
 }
-// auto=true: sale save hote hi seedha printer par bhejo (popup ke saath)
+// Direct print chalu: popup nahi, seedha printer (Chrome --kiosk-printing ho to preview bhi nahi aata)
+// auto=true: sale save hote hi
 function printReceipt(s, auto = false) {
+  if (directPrint()) { doPrint(s); toast(`🖨 Bill #${s.no} print ho gaya`); return; }
   modal('Bill #' + s.no, `<div class="rc-preview">${receiptHtml(s)}</div>
     <div class="row"><button class="primary" id="pPrint">🖨 Print</button><button id="pShare">📤 Share / PDF</button></div>`);
   $('pPrint').onclick = () => doPrint(s);
-  $('pShare').onclick = async () => {
-    const text = receiptText(s);
-    if (navigator.share) { try { await navigator.share({ title: 'Bill #' + s.no, text }); } catch {} }
-    else doPrint(s);
-  };
+  $('pShare').onclick = () => shareReceipt(s);
   if (auto) setTimeout(() => doPrint(s), 150);
+}
+
+async function shareReceipt(s) {
+  const text = receiptText(s);
+  if (navigator.share) { try { await navigator.share({ title: 'Bill #' + s.no, text }); } catch {} }
+  else { try { await navigator.clipboard.writeText(text); toast('Bill copy ho gaya — WhatsApp mein paste karein'); } catch { doPrint(s); } }
 }
 
 // ---------- HISTORY ----------
@@ -365,10 +428,11 @@ function renderHistory(m) {
   const tot = sales.reduce((n, s) => n + (Number(s.total) || 0), 0), pcs = sales.reduce((n, s) => n + s.lines.reduce((a, l) => a + l.qty, 0), 0);
   m.innerHTML = `<div class="stat"><div><small>Aaj ke bill</small><strong>${sales.length}</strong></div><div><small>Pieces</small><strong>${num(pcs)}</strong></div><div><small>Kul sale</small><strong>Rs ${num(tot)}</strong></div></div>
   <div class="box list">${sales.length ? sales.map(s => `<div class="it"><span><b>#${s.no}</b> · ${new Date(s.at).toLocaleTimeString('en-PK')}${s.customer ? ' · ' + esc(s.customer) : ''}<small>${s.lines.map(l => `${esc(l.name)}${l.size || l.color ? ' ' + esc([l.size, l.color].filter(Boolean).join('/')) : ''} ×${num(l.qty)}`).join(', ')}</small></span>
-    <span style="text-align:right"><b>Rs ${num(s.total)}</b><br><button class="x" data-rp="${s.id}">🖨</button>${isOwner() ? ` <button class="x danger" data-void="${s.id}">Wapas</button>` : ''}</span></div>`).join('') : '<div class="empty">Aaj koi sale nahi</div>'}</div>`;
+    <span style="text-align:right"><b>Rs ${num(s.total)}</b><br><button class="x" data-rp="${s.id}">🖨</button> <button class="x" data-sh="${s.id}" title="Share">📤</button>${isOwner() ? ` <button class="x danger" data-void="${s.id}">Wapas</button>` : ''}</span></div>`).join('') : '<div class="empty">Aaj koi sale nahi</div>'}</div>`;
   m.onclick = e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.rp) { const s = sales.find(x => x.id === b.dataset.rp); if (s) printReceipt(s); }
+    if (b.dataset.sh) { const s = sales.find(x => x.id === b.dataset.sh); if (s) shareReceipt(s); }
     if (b.dataset.void) voidSale(b.dataset.void);
   };
 }
@@ -472,14 +536,21 @@ function renderSettings(m) {
     <label>Rasid ke neeche ki line<input name="footer" value="${esc(cfg.footer || '')}"></label>
     <div class="row"><label class="grow" style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="showLogo" style="width:auto"${chk}> Logo rasid par chhapo</label>
     <label class="grow">Printer paper<select name="paper"><option value="80"${cfg.paper !== '58' ? ' selected' : ''}>80mm (TH230)</option><option value="58"${cfg.paper === '58' ? ' selected' : ''}>58mm</option></select></label></div>
+    <div class="row"><label class="grow">Print chaurai (mm) — khali = khud (80mm par 72)<input name="pwidth" type="number" step="0.5" min="30" max="80" value="${esc(cfg.pwidth ?? '')}" placeholder="${printGeom().pw}"></label>
+    <label class="grow">Left shift (mm) — left katay to barhayein<input name="shift" type="number" step="0.5" min="-10" max="20" value="${esc(cfg.shift ?? '')}" placeholder="${printGeom().sh}"></label></div>
+    <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="directChk" style="width:auto"${directPrint() ? ' checked' : ''}> Save par seedha print — popup nahi (sirf is device par)</label>
     <div class="row"><button type="submit">Save</button><button type="button" id="testPrint">🖨 Test print</button></div></form>
-  <div class="box muted" style="font-size:13px"><b>TH230 printer (PC/Chrome):</b> Windows mein printer ka driver install ho aur print dialog mein Destination = TH230, Margins = None, Scale = 100%, "Headers and footers" off. Ek dafa set karne ke baad Chrome yaad rakhta hai.</div>
+  <div class="box muted" style="font-size:13px"><b>TH230 printer (PC/Chrome):</b> Windows mein TH230 ka driver install ho aur <b>Default printer</b> TH230 ho (Settings → Bluetooth & devices → Printers → TH230 → Set as default; "Let Windows manage my default printer" band).<br><br>
+  <b>Chrome ka preview band karne ke liye (ek dafa):</b><br>1. Desktop par Chrome ka shortcut → Right click → Properties.<br>2. <b>Target</b> ke aakhir mein ek space de kar likhein: <code>--kiosk-printing</code><br>
+  (misaal: <code>"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --kiosk-printing</code>)<br>3. OK → Chrome poora band karein (neeche tray se bhi) → isi shortcut se app kholein.<br>Ab bill bina preview seedha TH230 par niklega.<br><br>
+  Bill ka left kinara katay to "Left shift" 1-2 mm barhayein, right katay to kam karein. Phir "Test print".</div>
   <form id="pf" class="box"><label>Mulazim ka PIN (4-6 hindse)<input name="pin" inputmode="numeric" minlength="4" maxlength="6" placeholder="naya PIN"></label><button type="submit">PIN save</button>
   <p class="muted" style="font-size:13px">Mulazim is PIN se login karke sirf Sale aur aaj ki Sales dekh sakta hai. Items, category aur settings sirf malik.</p></form>
   <div class="box"><b>Backup</b><p class="muted" style="font-size:13px">Saare items aur aaj ki sales ki JSON file.</p><button id="bk">⬇ Backup download</button></div>`;
-  const readForm = f => ({ shopName: f.elements.shopName.value.trim(), tagline: f.elements.tagline.value.trim(), address: f.elements.address.value.trim(), phone: f.elements.phone.value.trim(), phone2: f.elements.phone2.value.trim(), notes: f.elements.notes.value.trim(), footer: f.elements.footer.value.trim(), showLogo: f.elements.showLogo.checked, paper: f.elements.paper.value });
-  $('sf').onsubmit = async e => { e.preventDefault(); const d = readForm(e.target); await setDoc(doc(col('config'), 'shop'), d, { merge: true }); cfg = { ...cfg, ...d }; paintBrand(); toast('Save ho gaya'); };
-  $('testPrint').onclick = () => { cfg = { ...cfg, ...readForm($('sf')) }; printReceipt({ no: 'TEST', at: Date.now(), customer: 'Test', lines: [{ name: 'Kurta (sample)', size: 'L', color: 'White', qty: 1, rate: 2500, disc: 0 }, { name: 'Shalwar', qty: 2, rate: 900, disc: 100 }], disc: 0, total: 4200, paid: 5000, change: 800 }); };
+  const readForm = f => ({ shopName: f.elements.shopName.value.trim(), tagline: f.elements.tagline.value.trim(), address: f.elements.address.value.trim(), phone: f.elements.phone.value.trim(), phone2: f.elements.phone2.value.trim(), notes: f.elements.notes.value.trim(), footer: f.elements.footer.value.trim(), showLogo: f.elements.showLogo.checked, paper: f.elements.paper.value, pwidth: f.elements.pwidth.value.trim(), shift: f.elements.shift.value.trim() });
+  const saveDirect = () => localStorage.setItem('mg-direct-print', $('directChk').checked ? '1' : '0');
+  $('sf').onsubmit = async e => { e.preventDefault(); const d = readForm(e.target); await setDoc(doc(col('config'), 'shop'), d, { merge: true }); cfg = { ...cfg, ...d }; saveDirect(); paintBrand(); toast('Save ho gaya'); };
+  $('testPrint').onclick = () => { cfg = { ...cfg, ...readForm($('sf')) }; saveDirect(); printReceipt({ no: 'TEST', at: Date.now(), customer: 'Test', lines: [{ name: 'Kurta (sample)', size: 'L', color: 'White', qty: 1, rate: 2500, disc: 0 }, { name: 'Shalwar', qty: 2, rate: 900, disc: 100 }], disc: 0, total: 4200, paid: 5000, change: 800 }); };
   $('pf').onsubmit = async e => { e.preventDefault(); const pin = e.target.elements.pin.value.trim(); if (!/^\d{4,6}$/.test(pin)) return toast('4-6 hindse ka PIN likhein');
     const k = await pinKey(pin);
     // purani keys band, nayi chalu (mulazim ke purane login bhi band ho jate hain)
@@ -494,7 +565,7 @@ function renderSettings(m) {
 
 
 // ---------- Version + auto update ----------
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 let newVersion = '', swWaiting = null, snoozeUntil = 0;
 paintBrand();
 const setVerText = () => { const v = $('verNow'); if (v) v.textContent = 'Mohsin Garments POS v' + APP_VERSION; };
