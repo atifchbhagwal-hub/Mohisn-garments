@@ -329,11 +329,11 @@ async function saveSale(btn) {
 function logoMark(size = 40, bw = false) {
   const gold = bw ? '#000' : '#d9b65c', bg = bw ? '#fff' : '#0f2a55', txt = bw ? '#000' : '#f4dc9a', sub = bw ? '#000' : '#f6e7c9';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="${size}" height="${size}" style="display:block;flex:none">
-  <rect width="512" height="512" rx="104" fill="${bg}"${bw ? ' stroke="#000" stroke-width="10"' : ''}/>
-  <rect x="30" y="30" width="452" height="452" rx="84" fill="none" stroke="${gold}" stroke-width="6"/>
+  <rect width="512" height="512" rx="104" fill="${bg}"${bw ? ' stroke="#000" stroke-width="18"' : ''}/>
+  <rect x="30" y="30" width="452" height="452" rx="84" fill="none" stroke="${gold}" stroke-width="${bw ? 16 : 6}"/>
   <text x="256" y="300" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="232" font-weight="700" fill="${txt}" letter-spacing="-10">MG</text>
-  <line x1="120" y1="352" x2="216" y2="352" stroke="${gold}" stroke-width="3"/><line x1="296" y1="352" x2="392" y2="352" stroke="${gold}" stroke-width="3"/><path d="M256 344l8 8-8 8-8-8z" fill="${gold}"/>
-  <text x="256" y="404" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="27" fill="${sub}" letter-spacing="6">MOHSIN GARMENTS</text></svg>`;
+  <line x1="120" y1="352" x2="216" y2="352" stroke="${gold}" stroke-width="${bw ? 8 : 3}"/><line x1="296" y1="352" x2="392" y2="352" stroke="${gold}" stroke-width="${bw ? 8 : 3}"/><path d="M256 344l8 8-8 8-8-8z" fill="${gold}"/>
+  <text x="256" y="404" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="${bw ? 30 : 27}"${bw ? ' font-weight="700"' : ''} fill="${sub}" letter-spacing="6">MOHSIN GARMENTS</text></svg>`;
 }
 function brandLockup(size = 36) {
   return `<span class="brand">${logoMark(size)}<span class="brand-t"><b>${esc(cfg.shopName || 'Mohsin Garments')}</b><small>${esc(cfg.tagline || '')}</small></span></span>`;
@@ -392,7 +392,7 @@ function receiptHtml(s) {
     <div class="rc-tiny">Mohsin Garments POS</div>
   </div>`;
 }
-// TH230 80mm roll: asal chhapne ki jagah 72mm, dono taraf ~4mm khaali. Isliye content 4mm right khiska kar 72mm chaura.
+// Epson TM-T88V (80mm roll): asal chhapne ki jagah 72mm, dono taraf ~4mm khaali. Isliye content 4mm right khiska kar 72mm chaura.
 function printGeom() {
   const p = cfg.paper === '58' ? 58 : 80;
   const pw = Number(cfg.pwidth) > 0 ? Number(cfg.pwidth) : (p === 58 ? 48 : 72);
@@ -535,14 +535,14 @@ function renderSettings(m) {
     <label>Notes (rasid ke aakhir mein, e.g. wapsi/tabdeeli ki policy)<textarea name="notes" rows="3">${esc(cfg.notes || '')}</textarea></label>
     <label>Rasid ke neeche ki line<input name="footer" value="${esc(cfg.footer || '')}"></label>
     <div class="row"><label class="grow" style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="showLogo" style="width:auto"${chk}> Logo rasid par chhapo</label>
-    <label class="grow">Printer paper<select name="paper"><option value="80"${cfg.paper !== '58' ? ' selected' : ''}>80mm (TH230)</option><option value="58"${cfg.paper === '58' ? ' selected' : ''}>58mm</option></select></label></div>
+    <label class="grow">Printer paper<select name="paper"><option value="80"${cfg.paper !== '58' ? ' selected' : ''}>80mm (Epson TM-T88V)</option><option value="58"${cfg.paper === '58' ? ' selected' : ''}>58mm</option></select></label></div>
     <div class="row"><label class="grow">Print chaurai (mm) — khali = khud (80mm par 72)<input name="pwidth" type="number" step="0.5" min="30" max="80" value="${esc(cfg.pwidth ?? '')}" placeholder="${printGeom().pw}"></label>
     <label class="grow">Left shift (mm) — left katay to barhayein<input name="shift" type="number" step="0.5" min="-10" max="20" value="${esc(cfg.shift ?? '')}" placeholder="${printGeom().sh}"></label></div>
     <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="directChk" style="width:auto"${directPrint() ? ' checked' : ''}> Save par seedha print — popup nahi (sirf is device par)</label>
     <div class="row"><button type="submit">Save</button><button type="button" id="testPrint">🖨 Test print</button></div></form>
-  <div class="box muted" style="font-size:13px"><b>TH230 printer (PC/Chrome):</b> Windows mein TH230 ka driver install ho aur <b>Default printer</b> TH230 ho (Settings → Bluetooth & devices → Printers → TH230 → Set as default; "Let Windows manage my default printer" band).<br><br>
+  <div class="box muted" style="font-size:13px"><b>Epson TM-T88V printer (PC/Chrome):</b> Windows mein Epson TM-T88V ka driver install ho aur <b>Default printer</b> yahi ho (Settings → Bluetooth & devices → Printers → EPSON TM-T88V → Set as default; "Let Windows manage my default printer" band).<br><br>
   <b>Chrome ka preview band karne ke liye (ek dafa):</b><br>1. Desktop par Chrome ka shortcut → Right click → Properties.<br>2. <b>Target</b> ke aakhir mein ek space de kar likhein: <code>--kiosk-printing</code><br>
-  (misaal: <code>"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --kiosk-printing</code>)<br>3. OK → Chrome poora band karein (neeche tray se bhi) → isi shortcut se app kholein.<br>Ab bill bina preview seedha TH230 par niklega.<br><br>
+  (misaal: <code>"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --kiosk-printing</code>)<br>3. OK → Chrome poora band karein (neeche tray se bhi) → isi shortcut se app kholein.<br>Ab bill bina preview seedha printer par niklega.<br><br><b>Print halka aaye:</b> printer-dark.bat (alag file) chalayein — printer ki density 120% ho jati hai.<br><br>
   Bill ka left kinara katay to "Left shift" 1-2 mm barhayein, right katay to kam karein. Phir "Test print".</div>
   <form id="pf" class="box"><label>Mulazim ka PIN (4-6 hindse)<input name="pin" inputmode="numeric" minlength="4" maxlength="6" placeholder="naya PIN"></label><button type="submit">PIN save</button>
   <p class="muted" style="font-size:13px">Mulazim is PIN se login karke sirf Sale aur aaj ki Sales dekh sakta hai. Items, category aur settings sirf malik.</p></form>

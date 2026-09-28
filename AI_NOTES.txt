@@ -70,3 +70,8 @@ Alag app hai — Noor Traders / Blue Khata se koi talluq nahi (na code share, na
 - Sales tab mein har bill par 📤 Share button (shareReceipt: navigator.share, warna clipboard copy).
 - Versions 1.3.0: version.json, sw.js V, app.js APP_VERSION, index.html ?v=, config import.
 - Test: headless Chromium + mock Firebase (PC 1366 + mobile 390) — chips, item cards, variant popup, category tabs, direct print CSS, settings sab chale, koi JS error nahi.
+- (isi v1.3.0 mein, baad mein shamil) Dukaan ka asal printer: EPSON TM-T88V (80mm, print width 72mm) — pehle TH230 samjha tha. Settings ki hidayat ab Epson ke naam se.
+  Rasid gehri: .rc aur andar sab #000 !important, font 600-900, lines 2px, td ki dotted grey → 1px dashed black. logoMark(bw) mein strokes moti (16/8/18), wordmark bold.
+- Printer density tool (repo mein nahi, alag diya): printer-density.ps1 + printer-dark.bat (120%), printer-dark-130.bat (130%), printer-normal.bat (100 = factory default).
+  PowerShell winspool RAW job: GS ( E fn1 "IN" → fn5 a=5 value (1..6 = 105..130%, 100 = default) → fn2 "OUT" (NV mein save, printer restart), 6 sec baad test parchi + cut.
+  Printer naam mein T88 / TM-T / EPSON dhoondta hai, na mile to list se number poochta hai.

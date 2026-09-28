@@ -156,3 +156,20 @@ main.wide{max-width:1600px}
 .sCenter #chg{font-weight:700;color:var(--green)}
 .sCenter .actions button{min-height:58px;font-size:19px;font-weight:700}
 .sCenter .x{min-height:38px;font-size:18px}
+
+/* v1.3.0 rasid gehri: thermal par grey halka/toota chhapta hai → sab pure black, bold, moti lines */
+.rc,.rc *{color:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rc{font:600 13px/1.35 Arial,Helvetica,sans-serif}
+.rc-name{font-weight:900;font-size:19px}
+.rc-tag{font:italic 700 12px Georgia,serif}
+.rc-c,.rc-meta{font-size:12px;font-weight:700}
+.rc-hr{border-top:2px dashed #000}
+.rc-t{font-size:13px;font-weight:700}
+.rc-t th{font-size:11px;font-weight:900;border-bottom:2px solid #000}
+.rc-t td{border-bottom:1px dashed #000}
+.rc-t small{font-size:11px;font-weight:700}
+.rc-row{font-size:13px;font-weight:700}
+.rc-total{font:900 19px/1.3 Arial,sans-serif;border-top:2px solid #000;border-bottom:2px solid #000}
+.rc-notes{font-size:11px;font-weight:700}
+.rc-foot{font:italic 700 13px Georgia,serif}
+.rc-tiny{font-size:10px;font-weight:700}
